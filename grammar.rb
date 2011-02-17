@@ -101,25 +101,29 @@ class Grammar
   end
 
   
-  def chomsky_normal_form
-    
-  end
   alias :cnf :chomsky_normal_form
+  def chomsky_normal_form
+     
+  end
 
+  alias :gnf :greibach_normal_form
   def greibach_normal_form
 
   end
-  alias :gnf :greibach_normal_form
 
-  def chomsky_normal_form?
-    
-  end
   alias :cnf? :chomsky_normal_form?
+  def chomsky_normal_form?
+    if context_free?
+      self.each do |rule|
 
+      end
+    end
+  end
+
+  alias :gnf? :chomsky_normal_form?
   def greibach_normal_form?
 
   end
-  alias :gnf? :chomsky_normal_form?
 
 
   def each
