@@ -1,4 +1,4 @@
-#!/usr/bin/env ruby
+#!/usr/bin/env ruby -w
 # encoding: utf-8
 
 
@@ -9,14 +9,6 @@ class Grammar
 
   @@default_delim = '-->'
   @@epsilon = ''
-
-  def self.parse_rule(rule_string, delim=@@default_delim)
-    # TODO allow BNF-style rules
-    # FIXME nasty things will happen if invalid DCG-type rules are provided
-    rule_string.gsub!(/ /, '');
-    head, daughters = rule_string.split(delim)
-    [head.split(','), daughters.split(',')]
-  end
 
 
   # Construct a new Grammar from the supplied rules.
@@ -29,15 +21,19 @@ class Grammar
     # Allow a previously-generated hash to be dropped into place
     #FIXME validate the hash?
     @rules = rules if rules.kind_of? Hash
-    @rules ||= {}
+    @rules ||= {  }
 
     # Allow a single rule expressed as a string
-    rules = [rules] if rules.kind_of? String
-
     
-    rules.each do |rule|
-      push(rule)
+    if rules.kind_of? String
+      if rules.include? "\n"
+        rules = rules.parse_rules
+      else
+        rules = rules.parse_rule
+      end
     end
+    rules = [rules] if rules.kind_of? String
+    rules.each { |r| push(r) }
 
     # If no start symbol is given, assume the left-most head symbol of the first
     # rule supplied to be start symbol
@@ -59,11 +55,11 @@ class Grammar
   end
 
   def terminal_alphabet
-    Set.new(alphabet.partition {|symbol| symbol.terminal?}.shift)
+    Set.new(alphabet.partition { |s| s.terminal? }.shift)
   end
 
   def non_terminal_alphabet
-    Set.new(alphabet.partition {|symbol| symbol.non_terminal?}.shift)
+    Set.new(alphabet.partition { |s| s.non_terminal? }.shift)
   end
 
   def alphabet
@@ -74,17 +70,13 @@ class Grammar
   # If a DCG-style rule string is supplied, it is tokenized into heads and
   # daughters.
   def push(rule, dest=@rules)
-    rule = self.class.parse_rule(rule) if rule.kind_of? String
-
+    rule = rule.parse_rule if rule.kind_of? String
     if @rules.has_key? rule.head
       @rules[rule.head].push(rule.daughters)
     else
       @rules[rule.head] = [rule.daughters]
     end
-
-    
   end
-
 
   # Determine whether or not this Grammar is context-free.
   #
@@ -95,17 +87,15 @@ class Grammar
   # Where A is a single non-terminal, and w is an arbitrary sequence of
   # possibly-empty terminals or non-terminals.
   def context_free?
-    all? {|rule| rule.context_free?}
+    all? { |r| r.context_free? }
   end
-
 
   def right_regular?
-    all? {|rule| rule.right_regular?}
+    all? { |r| r.right_regular? }
   end
 
-
- def left_regular?
-    all? {|rule| rule.left_regular?}
+  def left_regular?
+    all? { |r| r.left_regular? }
   end 
 
   # Determine whether or not this grammar is strictly regular.
@@ -113,18 +103,15 @@ class Grammar
   # A grammar is strictly regular if and only if it is left-regular or
   # right-regular, but not both.
   def strictly_regular?
-    left_regular? or right_regular?
+    left_regular? || right_regular?
   end
-
 
   # Determine whether or not this grammar is regular.
   # A grammar is regular if and only if it is left-regular or right-regular, or
   # both.
   def regular?
-     all? {|rule| rule.left_regular? or rule.right_regular?}
+     all? { |r| r.left_regular? || r.right_regular? }
   end
-
- 
 
   #FIXME
   # Determine whether or not this Grammar is in Chomsky-normal form (CNF).
@@ -139,7 +126,7 @@ class Grammar
   # where A, B and C are non-terminals, a is a terminal, and [] is the empty
   # string.
   def chomsky_normal_form?
-    all? {|rule| rule.chomsky_normal_form?} 
+    all? { |r| r.chomsky_normal_form? } 
   end
 
   # Determine whether or not this Grammar is in Greibach-normal form (GNF).
@@ -154,7 +141,7 @@ class Grammar
   # string.
   #
   def greibach_normal_form?
-    all? {|rule| rule.greibach_normal_form?}
+    all? { |r| r.greibach_normal_form? }
   end
 
   # Return a Grammar in Chomsky-normal form which is equivalent to this Grammar.
@@ -177,7 +164,7 @@ class Grammar
   # non-terminal, and n is an arbitrary sequence of possibly empty
   # terminals or not terminals
   def left_recursive?
-    any {|rule| rule.left_recursive?} 
+    any { |r| r.left_recursive? } 
   end
 
 
@@ -185,8 +172,8 @@ class Grammar
   def +(other)
     self if other.length == 0
     union = Grammar.new(to_hash)
-    other.each do |rule|
-      union.push(rule)
+    other.each do |r|
+      union.push(r)
     end
 
     union
@@ -197,8 +184,15 @@ class Grammar
   def -(other)
     self if other.length == 0
     intersection = Grammar.new(to_hash)
-    intersection.delete_if {|rule| other.include? rule}
+    intersection.delete_if { |r| other.include? r }
+
     intersection
+  end
+
+  # FIXME Should == correspond to 'has the same productions in the same order'
+  # or 'Generates the same language'? If so, how?
+  def ==(other)
+    to_has == other.to_hash
   end
 
   # Return the nth rule defined by this grammar
@@ -210,17 +204,14 @@ class Grammar
 
   # Return whether or not this Grammar contains production
   def include?(production)
-    production = self.class.parse_rule(production) if production.kind_of? String
-    any? {|existing_production| existing_production == production}
+    production = production.parse_rule if production.kind_of? String
+
+    any? { |p| p == production }
   end
 
 
   def each
-    @rules.each do |head,daughters|
-      daughters.each do |daughter|
-        yield [head, daughter]
-      end
-    end
+    @rules.each { |h,ds| ds.each { |d| yield [h, d] } }
   end
 
 
@@ -228,9 +219,9 @@ class Grammar
     #TODO BNF form
 #    if bnf and context_free?
 #      delim = '::=' if delim != @@default_delim 
-#      @rules.map {|head, daughters| "#{head.join(' ')} #{delim} #{daughters.map {|daughter| daughter.join(' ')}.join(' | ')}"}
+#      @rules.map { |head, daughters| "#{ head.join(' ') } #{ delim } #{ daughters.map { |daughter| daughter.join(' ') }.join(' | ') }" }
 #    end
-    map {|r|"#{r.head.join(', ')} #{delim} #{r.daughters.join(', ')}"}.join("\n")
+    map { |r|"#{ r.head.join(', ') } #{ delim } #{ r.daughters.join(', ') }" }.join("\n")
   end
 
 
@@ -239,24 +230,27 @@ class Grammar
   #
   # Order of introduction is preserved.
   def to_hash
-    the_hash = {}
+    the_hash = {  }
     the_hash.replace(@rules)
+
     return the_hash
   end
 
 
   def to_a
-    to_hash.to_a
+    the_array = []
+    each { |r| the_array.push(r) }
+    the_array
   end
 
-  alias :cnf :chomsky_normal_form
-  alias :cnf? :chomsky_normal_form?
+  alias_method :cnf :chomsky_normal_form
+  alias_method :cnf? :chomsky_normal_form?
 
-  alias :gnf :greibach_normal_form
-  alias :gnf? :greibach_normal_form?
+  alias_method :gnf :greibach_normal_form
+  alias_method :gnf? :greibach_normal_form?
 
-  alias :length :count
-  alias :[] :at
+  alias_method :length :count
+  alias_method :[] :at
 
 end
 
@@ -270,21 +264,21 @@ class Array
   end
 
   def context_free?
-    head.length == 1 and head[0].non_terminal?
+    head.length == 1 && head[0].non_terminal?
   end
 
   def right_regular?
-    context_free? and
-    daughters.length == 2 and
-    daughters[0].terminal? and
-    (daughters[1].non_terminal? or daughters[1].nil?)
+    context_free? &&
+    daughters.length == 2 &&
+    daughters[0].terminal? &&
+    (daughters[1].non_terminal? || daughters[1].nil?)
   end
 
   def left_regular?
-    context_free? and
-    daughters.length == 2 and
-    daughters[1].terminal? and
-    (daughters[0].non_terminal? or daughters[1].nil?)
+    context_free? &&
+    daughters.length == 2 &&
+    daughters[1].terminal? &&
+    (daughters[0].non_terminal? || daughters[1].nil?)
   end
 
 
@@ -293,13 +287,13 @@ class Array
   end
 
   def epsilon_production?
-    context_free? and daughters.count == 1 and daughters[0].empty_string?
+    context_free? && daughters.count == 1 && daughters[0].empty_string?
   end
 
   def chomsky_normal_form?
-    context_free? and (
-      (daughters.count == 2 and daughters.all {|symbol| symbol.non_terminal?}) or
-      (daughters.count == 1 and daughters[0].terminal?)
+    context_free? && (
+      (daughters.count == 2 && daughters.all { |s| s.non_terminal? }) ||
+      (daughters.count == 1 && daughters[0].terminal?)
     )
   end
 
@@ -308,9 +302,9 @@ class Array
   end
 
   def greibach_normal_form?
-     context_free? and (
-      (daughters.count == 2 and daughters[0].terminal? and daughters[1].non_terminal?) or
-      (daughters.count == 1 and daughters[0].empty_string?)
+     context_free? && (
+      (daughters.count == 2 && daughters[0].terminal? && daughters[1].non_terminal?) ||
+      (daughters.count == 1 && daughters[0].empty_string?)
     ) 
   end
 
@@ -319,7 +313,7 @@ end
 
 class String
   def terminal?
-    start_with? '[' and end_with? ']';
+    start_with? '[' and end_with? ']'
   end
 
   def non_terminal?
@@ -330,9 +324,25 @@ class String
     self == '[]'
   end
 
+  def valid_production?
+    (self =~ /^((\[\w+\]|\w+),)*(\[\w+\]|\w+)-->((\[\w+\]|\w+),)*(\[\w+\]|\w+)$/) != nil
+  end
+
+
+  def parse_rule(delim='-->')
+    rule = gsub(/ /, '')
+    #raise ArgumentError unless valid_production?
+    head, daughters = rule.split(delim)
+
+    [head.split(','), daughters.split(',')]
+  end
+
+  def parse_rules(delim='-->', line_end="\n")
+    rules = split("\n")
+
+    rules.map { |r| r.parse_rule } 
+  end
 end
 
 if __FILE__ == $0
-  g = Grammar.new("Noun --> verb, adjective")
-  puts g.to_s
 end

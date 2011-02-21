@@ -35,24 +35,58 @@ class TestGrammar < Test::Unit::TestCase
 
 
   def test_right_regular?
+    grammar = Grammar.new('B --> [a]')
+    assert grammar.right_regular?
 
+    grammar = Grammar.new('B --> [a], C')
+    assert grammar.right_regular?
+
+    grammar = Grammar.new('B --> []')
+    assert grammar.right_regular?
+
+    grammar = Grammar.new([
+      'B --> [a]',
+      'B --> [a], C',
+      'B --> []',
+    ])
+    assert grammar.right_regular?
+
+    # Not right-regular, by definition
+    grammar.push('B --> A, [b]')
+    assert(!grammar.right_regular?)
+    
+    # Not right-regular, by definition
+    grammar = Grammar.new('B --> A, [b]')
+    assert(!grammar.right_regular?)
   end
 
 
   def test_left_regular?
+    grammar = Grammar.new('B --> [a]')
+    assert grammar.left_regular?
 
+    grammar = Grammar.new('B --> C, [a]')
+    assert grammar.left_regular?
+
+    grammar = Grammar.new('B --> []')
+    assert grammar.left_regular?
+
+    grammar = Grammar.new([
+      'B --> [a]',
+      'B --> C, [a]',
+      'B --> []',
+    ])
+    assert grammar.left_regular?
+
+    # Not left-regular, by definition
+    grammar.push('B --> [b], A')
+    assert(!grammar.left_regular?)
+    
+    # Not left-regular, by definition
+    grammar = Grammar.new('B --> [b], A')
+    assert(!grammar.left_regular?)
   end
-
-
-  def test_strictly_regular?
-
-  end
-
-
-  def test_regular?
-
-  end
-
+ 
 
   def test_chomsky_normal_form
 
