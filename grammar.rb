@@ -1,6 +1,10 @@
 #!/usr/bin/env ruby
+# encoding: utf-8
+
 
 class Grammar
+
+  require 'set'
   include Enumerable
 
   @@default_delim = '-->'
@@ -20,8 +24,8 @@ class Grammar
   # Rules may be an Array of Arrays (corresponding to heads and daughters of
   # rules), an Array of DCG-like strings, or a hash mapping head symbols to
   # possible daughter productions.
-  def initialize(rules)
-
+  def initialize(rules, start_symbol=nil)
+  
     # Allow a previously-generated hash to be dropped into place
     #FIXME validate the hash?
     @rules = rules if rules.kind_of? Hash
@@ -30,10 +34,40 @@ class Grammar
     # Allow a single rule expressed as a string
     rules = [rules] if rules.kind_of? String
 
+    
     rules.each do |rule|
       push(rule)
     end
 
+    # If no start symbol is given, assume the left-most head symbol of the first
+    # rule supplied to be start symbol
+    @start_symbol = start_symbol
+    @start_symbol ||= first(1).head[0]
+
+  end
+
+  def start_symbol
+    @start_symbol
+  end
+
+  def start_symbol=(new_start_symbol)
+    if non_terminal_alphabet.include? new_start_symbol
+      @start_symbol = new_start_symbol
+    else
+      raise ArgumentError "The start symbol must be an element of the alphabet"
+    end
+  end
+
+  def terminal_alphabet
+    Set.new(alphabet.partition {|symbol| symbol.terminal?}.shift)
+  end
+
+  def non_terminal_alphabet
+    Set.new(alphabet.partition {|symbol| symbol.non_terminal?}.shift)
+  end
+
+  def alphabet
+    Set.new(to_a.flatten!.uniq!)
   end
 
   # Add a rule to this Grammar
@@ -61,17 +95,17 @@ class Grammar
   # Where A is a single non-terminal, and w is an arbitrary sequence of
   # possibly-empty terminals or non-terminals.
   def context_free?
-    all {|rule| rule.context_free?}
+    all? {|rule| rule.context_free?}
   end
 
 
   def right_regular?
-    all {|rule| rule.right_regular?}
+    all? {|rule| rule.right_regular?}
   end
 
 
  def left_regular?
-    all {|rule| rule.left_regular?}
+    all? {|rule| rule.left_regular?}
   end 
 
   # Determine whether or not this grammar is strictly regular.
@@ -85,10 +119,9 @@ class Grammar
 
   # Determine whether or not this grammar is regular.
   # A grammar is regular if and only if it is left-regular or right-regular, or
-  # noth.
-  # FIXME no grammar will satisfy both definitions
+  # both.
   def regular?
-     all {|rule| rule.left_regular? or rule.right_regular?}
+     all? {|rule| rule.left_regular? or rule.right_regular?}
   end
 
  
@@ -106,18 +139,7 @@ class Grammar
   # where A, B and C are non-terminals, a is a terminal, and [] is the empty
   # string.
   def chomsky_normal_form?
-    if context_free?
-      each do |rule|
-        if rule.daughters.length == 1
-          return false unless rule.daughters[0].terminal?
-        else
-          return false unless rule.daughters.all{|d| d.non_terminal?}
-        end
-      end
-    else
-      false
-    end
-    true
+    all? {|rule| rule.chomsky_normal_form?} 
   end
 
   # Determine whether or not this Grammar is in Greibach-normal form (GNF).
@@ -132,12 +154,7 @@ class Grammar
   # string.
   #
   def greibach_normal_form?
-    false if not context_free?
-      each do |rule|
-        return false unless rule.daughters[0].terminal?
-        return false unless (rule.daughters.length > 1 and rule.daughters[1].non_terminal?) or rule.daughters[0].empty_string?
-      end
-    true
+    all? {|rule| rule.greibach_normal_form?}
   end
 
   # Return a Grammar in Chomsky-normal form which is equivalent to this Grammar.
@@ -194,7 +211,7 @@ class Grammar
   # Return whether or not this Grammar contains production
   def include?(production)
     production = self.class.parse_rule(production) if production.kind_of? String
-    self.any? {|existing_production| existing_production == production}
+    any? {|existing_production| existing_production == production}
   end
 
 
@@ -213,14 +230,14 @@ class Grammar
 #      delim = '::=' if delim != @@default_delim 
 #      @rules.map {|head, daughters| "#{head.join(' ')} #{delim} #{daughters.map {|daughter| daughter.join(' ')}.join(' | ')}"}
 #    end
-    self.map {|r|"#{r.head.join(', ')} #{delim} #{r.daughters.join(', ')}"}.join("\n")
+    map {|r|"#{r.head.join(', ')} #{delim} #{r.daughters.join(', ')}"}.join("\n")
   end
 
 
   # Return a Hash mapping Head symbols to an array of their possible
   # productions in this grammar
   #
-  # Order of introduction is not necessarily preserved.
+  # Order of introduction is preserved.
   def to_hash
     the_hash = {}
     the_hash.replace(@rules)
@@ -228,11 +245,15 @@ class Grammar
   end
 
 
+  def to_a
+    to_hash.to_a
+  end
+
   alias :cnf :chomsky_normal_form
   alias :cnf? :chomsky_normal_form?
 
   alias :gnf :greibach_normal_form
-  alias :gnf? :chomsky_normal_form?
+  alias :gnf? :greibach_normal_form?
 
   alias :length :count
   alias :[] :at
@@ -274,6 +295,25 @@ class Array
   def epsilon_production?
     context_free? and daughters.count == 1 and daughters[0].empty_string?
   end
+
+  def chomsky_normal_form?
+    context_free? and (
+      (daughters.count == 2 and daughters.all {|symbol| symbol.non_terminal?}) or
+      (daughters.count == 1 and daughters[0].terminal?)
+    )
+  end
+
+  def cyclic?
+    head == daughters
+  end
+
+  def greibach_normal_form?
+     context_free? and (
+      (daughters.count == 2 and daughters[0].terminal? and daughters[1].non_terminal?) or
+      (daughters.count == 1 and daughters[0].empty_string?)
+    ) 
+  end
+
 end
 
 
@@ -283,7 +323,7 @@ class String
   end
 
   def non_terminal?
-    not terminal? or empty_string?
+    not terminal?
   end
 
   def empty_string?

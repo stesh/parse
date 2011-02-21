@@ -4,7 +4,7 @@ require 'grammar'
 require 'test/unit'
 
 class TestGrammar < Test::Unit::TestCase
-
+  require 'set'
 
   def test_push
     grammar = Grammar.new('N --> N, VP')
@@ -190,5 +190,88 @@ class TestGrammar < Test::Unit::TestCase
     assert_equal(expected, grammar.to_hash)
   end
 
+
+  def test_start_symbol
+    grammar = Grammar.new([
+      'S --> NP, VP',
+      'NP --> N',
+      'PP --> P, NP',
+      'VP --> V, NP',
+      'P --> [to]',
+      'P --> [from]',
+      'V --> [work]',
+      'N --> [home]',
+      'N --> [rule]'
+    ])
+    assert_equal(['S'], grammar.start_symbol)
+  end
+
+  def test_start_symbol=
+    grammar = Grammar.new([
+      'S --> NP, VP',
+      'NP --> N',
+      'PP --> P, NP',
+      'VP --> V, NP',
+      'P --> [to]',
+      'P --> [from]',
+      'V --> [work]',
+      'N --> [home]',
+      'N --> [rule]'
+    ])
+    #assert_raise(ArgumentError, grammar.start_symbol = 'X') # not in alphabet
+    grammar.push('X --> XP')
+    grammar.start_symbol = 'X'
+    assert_equal('X', grammar.start_symbol)
+  end
+
+  def test_alphabet
+    grammar = Grammar.new([
+      'S --> NP, VP',
+      'NP --> N',
+      'PP --> P, NP',
+      'VP --> V, NP',
+      'P --> [to]',
+      'P --> [from]',
+      'V --> [work]',
+      'N --> [home]',
+      'N --> [rule]'
+    ])
+    expected = Set.new('S NP VP N PP P VP V P [to] [from] [work] [rule] [home]'.split)
+    assert_equal(expected, grammar.alphabet)
+
+  end
+
+  def test_terminal_alphabet
+    grammar = Grammar.new([
+      'S --> NP, VP',
+      'NP --> N',
+      'PP --> P, NP',
+      'VP --> V, NP',
+      'P --> [to]',
+      'P --> [from]',
+      'V --> [work]',
+      'N --> [home]',
+      'N --> [rule]'
+    ])
+    expected = Set.new('[to] [from] [work] [rule] [home]'.split)
+    assert_equal(expected, grammar.terminal_alphabet)
+  end
+
+  def test_non_terminal_alphabet
+    grammar = Grammar.new([
+      'S --> NP, VP',
+      'NP --> N',
+      'PP --> P, NP',
+      'VP --> V, NP',
+      'P --> [to]',
+      'P --> [from]',
+      'V --> [work]',
+      'N --> [home]',
+      'N --> [rule]'
+    ])
+
+    expected = Set.new('S NP VP N PP P VP V P'.split)
+    assert_equal(expected, grammar.non_terminal_alphabet)
+  end
 
 end
