@@ -4,9 +4,77 @@
 class Tree < Array
 
   def self.parse_bracketed(s, delim='()')
+    whitespace = ' '
+    left_delim, right_delim = delim[0,2].split(//)
+    left_count, right_count = [left_delim, right_delim].map {|d| s.count(d)}
+
+    unless left_count != right_count
+      raise ArgumentError "Malformed parse string (#{left_count} left delimiters, #{right_count} right delimiters)"
+    end
+
+    tree = Tree.new
+    
+    # If there are no brackets, assume a trivial tree with a head and no daughters
+    if left_count == right_count == 0
+      tree.head = s
+
+    # Otherwise, we have some recursion to do
+    else
+
+      # If it's a non-trivial and well-formed tree, the first category will
+      # begin at the second character
+      index = 1 
+      
+      stack = []
+      category = ''
+      
+      while s[index] != whitespace
+        category += s[index]
+        index += 1
+      end
+
+      # Seek until the next 
+      index += 1 until s[index] != whitespace
+      unless s[index] == left_delim
+        token = s[index]
+        index += 1
+        until s[index] == right_delim
+          token += s[index]
+          index += 1
+        end
+      else
+
+        while index < s.count
+          if s[index] == left_delim
+            forward_index = index
+            stack.push(index)
+            forward_index += 1
+            until stack.empty?
+
+              case s[index]
+                when left_delim
+                  stack.push(forward_index)
+                when right_delim
+                  stack.pop
+              end
+              forward_index += 1
+              
+              # The recursive call
+              tree += [Tree.new(s[index,forward_index])]
+              index = forward_index
+            end
+
+          else
+            index += 1
+          end
+        end
+      end
+    end
+    tree
   end
 
-  def initialize(head, children)
+  def initialize(head, children=nil)
+    self = self.parse_bracketed(head) unless children
     super(children)
     @head = head
   end
@@ -18,7 +86,6 @@ class Tree < Array
       if child.kind_of? Tree
         the_leaves.push(child)
       else
-        
         the_leaves = the leaves + (child.leaves)
       end
     end
@@ -101,9 +168,14 @@ class Tree < Array
   end
 
   def test
+    t = Tree.new()
   end
 
   alias_method :cnf, :chomsky_normal_form
   attr_accessor :head
 
+end
+
+if __FILE__ == $0 
+  test
 end
