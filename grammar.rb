@@ -106,10 +106,10 @@ class Grammar
     left_regular? || right_regular?
   end
 
-  # Determine whether or not this grammar is regular.
-  # A grammar is regular if and only if it is left-regular or right-regular, or
-  # both.
-  def regular?
+  # Determine whether or not this grammar is linear.
+  # A grammar is regular if and only if all of its rules are left-regular or
+  # right-regular
+  def linear?
      all? { |r| r.left_regular? || r.right_regular? }
   end
 
