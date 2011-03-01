@@ -4,74 +4,72 @@
 class Tree < Array
 
   def initialize(head, children=nil)
+
+    # If there are no children, assume a Penn-style bracketed tree has been
+    # supplied. This needs to be parsed into a Tree.
     if children.nil?
       whitespace = ' '
       delim = '()'
       left_delim, right_delim = delim[0,2].split(//)
       left_count, right_count = [left_delim, right_delim].map {|d| head.count(d)}
 
-      unless left_count != right_count
-        #raise ArgumentError "Malformed parse string (#{left_count} left delimiters, #{right_count} right delimiters)"
+      unless left_count == right_count
+        raise ArgumentError, "Malformed bracketed tree \"#{head}\": #{left_count} left delimiters, #{right_count} right delimiters"
       end
-
-      
+    
       # If there are no brackets, assume a trivial tree with a head and no daughters
       if left_count.zero? and right_count.zero?
         @head = head
 
       # Otherwise, we have some recursion to do
       else
+        stack = Array.new
+        index = 1
+        forward_index = 0
 
-        # If it's a non-trivial and well-formed tree, the first category will
-        # begin at the second character
-        index = 1 
-        
-        stack = []
         category = ''
-        
-        while head[index] != whitespace
+
+        until head[index] == ' '
           category += head[index]
           index += 1
         end
 
-        # Seek until the next 
-        index += 1 until head[index] != whitespace
-        unless head[index] == left_delim
-          token = head[index]
+        index += 1 until head[index] != ' '
+
+        if head[index] != '('
+          word = ''
+          word += head[index]
           index += 1
-          until s[index] == right_delim
-            token += s[index]
+          while head[index] != ')'
+            word += head[index]
             index += 1
           end
         else
-
           while index < head.length
-            if head[index] == left_delim
+            if head[index] == '('
               forward_index = index
               stack.push(index)
               forward_index += 1
-
               until stack.empty?
-                case head[index]
-                  when left_delim
-                    stack.push(forward_index)
-                  when right_delim
-                    stack.pop
+                puts stack
+                case head[forward_index]
+                when '('
+                  stack.push(forward_index)
+                when ')'
+                  stack.pop()
                 end
                 forward_index += 1
-                
-                # The recursive call
-                push(Tree.new(head[index,forward_index]))
-                index = forward_index
               end
 
+              # The recursive call
+              push(Tree.new(head[index, forward_index]))
+              index = forward_index
             else
               index += 1
             end
           end
         end
       end
-
     else
       super(children)
       @head = head
@@ -177,7 +175,7 @@ class Tree < Array
 end
 
 if __FILE__ == $0 
-  sentence = "(S (NP (Det the ) (N man ) ) (VP (V ate ) (NP (Det an ) (N  apple ) ) ) )"
+  sentence = "(S (NP (NNP John)) (VP (V runs)))"
   test = Tree.new(sentence)
   puts test.to_s
 end
