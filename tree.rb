@@ -3,13 +3,12 @@
 
 class Tree < Array
 
-  def initialize(head, children=nil)
+  def initialize(head, children=nil, delim='()')
 
     # If there are no children, assume a Penn-style bracketed tree has been
     # supplied. This needs to be parsed into a Tree.
     if children.nil?
       whitespace = ' '
-      delim = '()'
       left_delim, right_delim = delim[0,2].split(//)
       left_count, right_count = [left_delim, right_delim].map {|d| head.count(d)}
 
@@ -23,46 +22,46 @@ class Tree < Array
 
       # Otherwise, we have some recursion to do
       else
+        # normalize spaces
+        head = head.gsub(/\(\s+/, '(').gsub(/\s+\)/, ')')
         stack = Array.new
         index = 1
         forward_index = 0
 
-        category = ''
+        @head = ''
 
         until head[index] == ' '
-          category += head[index]
+          @head += head[index]
           index += 1
         end
 
         index += 1 until head[index] != ' '
-
-        if head[index] != '('
+        if head[index] != left_delim
           word = ''
           word += head[index]
           index += 1
-          while head[index] != ')'
+          while head[index] != right_delim
             word += head[index]
             index += 1
           end
+          push(word)
         else
           while index < head.length
-            if head[index] == '('
+            if head[index] == left_delim
               forward_index = index
               stack.push(index)
               forward_index += 1
               until stack.empty?
-                puts stack
                 case head[forward_index]
-                when '('
+                when left_delim
                   stack.push(forward_index)
-                when ')'
-                  stack.pop()
+                when right_delim
+                  stack.pop
                 end
                 forward_index += 1
               end
-
               # The recursive call
-              push(Tree.new(head[index, forward_index]))
+              push(Tree.new(head[index...forward_index]))
               index = forward_index
             else
               index += 1
@@ -144,12 +143,22 @@ class Tree < Array
   end
 
   def to_s(delim='()', nonterm_prefix='')
+    d, n = delim, nonterm_prefix
     if terminal?
       @head
     else
-      l, r = delim[0,2].split(//)
-      "#{ l } #{ nonterm_prefix } #{ @head } #{ map {|child| child.to_s}.join(' ')} #{ r }"
+      l, r = d[0,2].split(//)
+
+      "#{ l } #{ nonterm_prefix }#{ @head } #{
+        map do |child|
+          if child.kind_of? Tree
+            child.to_s(delim=d, nonterm_prefix=n)
+          else
+            child.to_s
+          end
+        end .join(' ')} #{ r }"
     end
+    
   end
 
   def draw
@@ -177,5 +186,4 @@ end
 if __FILE__ == $0 
   sentence = "(S (NP (NNP John)) (VP (V runs)))"
   test = Tree.new(sentence)
-  puts test.to_s
 end
