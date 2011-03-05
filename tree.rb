@@ -3,6 +3,9 @@
 
 class Tree < Array
 
+  #
+  # Create a new Tree.
+  #
   def initialize(head, children=nil, delim='()')
 
     # If there are no children, assume a Penn-style bracketed tree has been
@@ -75,6 +78,9 @@ class Tree < Array
     end
   end
 
+  #
+  # Return the leaves of this Tree. 
+  #
   def leaves
     #FIXME this is probably a bit newbish
     the_leaves = []
@@ -89,14 +95,33 @@ class Tree < Array
     the_leaves
   end
 
+  #
+  # Return a new Tree whose root node is this Tree's root note, with this Tree's
+  # leaf nodes as its children.
+  #
+  # Example:
+  #
+  # (S (NP (Det The) (N politician)) (VP (V took) (NP (Det the) (N bribe))))
+  #
+  # =>
+  #
+  # (S The politician took the bribe)
+  #
   def flatten
     Tree.new(@head, leaves)
   end
 
+  # 
+  # Flatten this Tree in-place
+  #
   def flatten!
     # buggerit
+    raise NotImplementedError
   end
 
+  #
+  # Return the height of this Tree.
+  #
   def height
     max_height = 0
     each do |child|
@@ -109,6 +134,9 @@ class Tree < Array
     max_height.succ
   end
 
+  # 
+  # Iterate over all the subtrees of this Tree.
+  #
   def subtrees
     yield self
     each do |child|
@@ -120,28 +148,102 @@ class Tree < Array
     end
   end
 
+  #
+  # Return an Array of all the subtrees of this Tree.
+  #
+  def subtrees!
+    trees = Array.new
+    subtrees {|tree| trees.push(tree)}
+    return trees
+  end
+
+  #
+  # Iterate over this Tree in preorder traversal.
+  #
   def preorder
+    yield self
+    each do |child|
+      unless pre_terminal?
+        child.preorder {|c| yield c}
+      else
+        each {|c| yield c}
+      end
+    end
   end
 
+  # 
+  # Iterate over this Tree in postorder traversal.
+  #
   def postorder
+    each do |child|
+      unless pre_terminal?
+        child.postorder {|c| yield c}
+      else
+        each {|c| yield c}
+      end
+    end
+    yield self
   end
-
+  
+  #
+  # Return the grammar licensing the generation of this Tree.
+  #
   def to_grammar
+    raise NotImplementedError
   end
 
+  #
+  # Return the pre-terminals of this Tree.
+  #
   def pre_terminals
+    raise NotImplementedError
   end
 
+  # 
+  # Return whether or not this Tree is terminal. A tree is considered terminal
+  # if and only if it possesses no children.
   def terminal?
     self.empty?
   end
 
+  # 
+  # Return an Array of terminal/pre-terminal pairs from this Tree.
+  #
+  # In a natural language parse, such an Array corresponds to a
+  # part-of-speech-tagged utterance:
+  #
+  # (S (NP (Det The) (N politician)) (VP (V took) (NP (Det the) (N bribe))))
+  #
+  # =>
+  #
+  # [["The", "Det"], ["politician","N"], ["took","V"], ["the","the"], ["bribe","N"]]
+  #
   def part_of_speech
+    raise NotImplementedError
   end
 
+  # 
+  # Return a copy of this Tree in Chomsky-normal form.
+  #
   def chomsky_normal_form
+    raise NotImplementedError
   end
 
+  #
+  # Transform this Tree to Chomsky-normal form in-place.
+  #
+  def chomsky_normal_form!
+    raise NotImplementedError
+  end
+
+  #
+  # Return a String representation of this Tree.
+  #
+  # Trees are represented in Penn treebank-style notation. As such, parentheses
+  # () are used to delimit constituents. If desired, alternative delimeters can
+  # be supplied. An arbitrary String may also be prepended to non-terminal
+  # labels.
+  #
   def to_s(delim='()', nonterm_prefix='')
     d, n = delim, nonterm_prefix
     if terminal?
@@ -166,16 +268,26 @@ class Tree < Array
     to_s
   end
 
+  # 
+  # Return a String representation for display in a LaTeX document with the Penn
+  # QTree package.
+  #
   def latex_qtree
-    to_s(delim='[]', nonterm_prefix='.')
+    "\\Tree " + to_s(delim='[]', nonterm_prefix='.')
   end
 
   def penn_bracketed_tree
     to_s
   end
 
+  #
+  # Test this class. Somehow.
+  #
+  # This method probz shouldn't exist
+  #
   def test
-    t = Tree.new()
+    sentence = "(S (NP (NNP John)) (VP (V runs)))"
+    test = Tree.new(sentence)
   end
 
   alias_method :cnf, :chomsky_normal_form
@@ -184,6 +296,5 @@ class Tree < Array
 end
 
 if __FILE__ == $0 
-  sentence = "(S (NP (NNP John)) (VP (V runs)))"
-  test = Tree.new(sentence)
+  test
 end
